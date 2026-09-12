@@ -1,0 +1,111 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&family=Noto+Serif+TC:wght@600;700&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --font-display: "Noto Serif TC", "Noto Serif", "Songti TC", serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --color-bg: #0c0e12;
+  --color-bg-elevated: #12151c;
+  --color-surface: #171b22;
+  --color-surface-2: #1e242e;
+  --color-fg: #ece8e1;
+  --color-muted: #9a958c;
+  --color-faint: #6d6a64;
+  --color-primary: #c5cdd6;
+  --color-primary-fg: #12151c;
+  --color-border: #2a303a;
+  --color-ring: #c5cdd6;
+  --color-ok: #8fa68e;
+  --color-warn: #c4a574;
+  --color-danger: #c17a72;
+  --color-card: #171b22;
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.125rem;
+  --radius-xl: 1.5rem;
+}
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: var(--color-bg);
+    color: var(--color-fg);
+  }
+
+  body {
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+    background: var(--color-bg);
+    color: var(--color-fg);
+    text-wrap: pretty;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+    letter-spacing: -0.03em;
+  }
+
+  #app {
+    min-height: 100dvh;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.rise-in {
+  animation: rise-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pop-in {
+  animation: pop-in 250ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise-in,
+  .pop-in {
+    animation: none;
+  }
+}
