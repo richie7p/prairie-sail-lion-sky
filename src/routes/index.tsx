@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { StorageNotice } from "@/components/storage-notice";
 import { createFileRoute } from "@tanstack/react-router";
 import { CreateScreen } from "@/components/game/CreateScreen";
 import { DossierScreen } from "@/components/game/DossierScreen";
@@ -18,6 +19,14 @@ function Home() {
     void useGame.persist.rehydrate();
   }, []);
 
+  return <>
+    <StorageNotice />
+    <p role="note" className="border-b border-border bg-surface px-4 py-2 text-xs text-muted">遊戲規則與院校權重未經校準；分數是情境適配度，不能用於真實升學決策。只填虛構暱稱。</p>
+    <GameScreen screen={screen} />
+  </>;
+}
+
+function GameScreen({ screen }: { screen: string }) {
   if (screen === "create") return <CreateScreen />;
   if (screen === "play") return <PlayScreen />;
   if (screen === "recap") return <RecapScreen />;

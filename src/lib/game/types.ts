@@ -1,4 +1,4 @@
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export type Screen =
   | "title"
@@ -241,6 +241,7 @@ export interface GameData {
   interview: InterviewState | null;
   attribution: Attribution | null;
   history: RunRecord[];
+  startedAt: number;
   seed: number;
   rngState: number;
   turn: number;

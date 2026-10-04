@@ -47,6 +47,7 @@ import type {
   Verdict,
 } from "./types";
 import { SAVE_VERSION } from "./types";
+import { parseSave } from "./save-schema";
 
 export function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));
@@ -111,6 +112,7 @@ export function titleData(history: RunRecord[] = []): GameData {
     interview: null,
     attribution: null,
     history,
+    startedAt: 0,
     seed: 0,
     rngState: 0,
     turn: 0,
@@ -254,7 +256,7 @@ function pickRoommateActions(r: RoommateState, phase: number, rng: Rng): ActionI
 
 function simRoommateTerm(r: RoommateState, phase: number, rng: Rng): RoommateState {
   const actions = pickRoommateActions(r, phase, rng);
-  let stats = { ...r.stats };
+  const stats = { ...r.stats };
   let hasAdvisor = r.hasAdvisor;
   let internDone = r.internDone;
   let papers = r.papers;
@@ -311,8 +313,8 @@ function simRoommateTerm(r: RoommateState, phase: number, rng: Rng): RoommateSta
   };
 }
 
-export function startGame(profile: Profile, history: RunRecord[] = []): GameData {
-  const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
+export function startGame(profile: Profile, history: RunRecord[] = [], options: { seed?: number; startedAt?: number } = {}): GameData {
+  const seed = (options.seed ?? crypto.getRandomValues(new Uint32Array(1))[0]!) >>> 0;
   const arch = ARCHETYPES[profile.archetype];
   const major = MAJORS[profile.major];
   const stats = mergeStats(arch.stats, major.mods);
@@ -336,6 +338,7 @@ export function startGame(profile: Profile, history: RunRecord[] = []): GameData
     interview: null,
     attribution: null,
     history,
+    startedAt: options.startedAt ?? Date.now(),
     seed,
     rngState: seed,
     turn: 0,
@@ -343,6 +346,8 @@ export function startGame(profile: Profile, history: RunRecord[] = []): GameData
 }
 
 export function actionLockReason(data: GameData, id: ActionId): string | null {
+  if (!data.gameActive || data.screen !== "play") return "目前不能執行行動";
+  if (!ACTION_MAP[id]) return "未知行動";
   if (data.pendingEvent) return "先看完這張事件卡";
   if (data.actionsLeft <= 0) return "本學期行動已用完";
   const meta = ACTION_MAP[id];
@@ -1054,7 +1059,7 @@ export function performAction(
   const rng = createRng(data.rngState);
   const built = resolveAction(data, id, rng);
   const campus = id === "rest" ? null : maybeCampusEvent(data, rng);
-  let deltas = { ...built.event.deltas };
+  const deltas = { ...built.event.deltas };
   if (campus) {
     (Object.keys(campus.deltas) as (keyof Deltas)[]).forEach((k) => {
       deltas[k] = (deltas[k] ?? 0) + (campus.deltas[k] ?? 0);
@@ -1192,6 +1197,7 @@ function buildRecap(data: GameData): GameData {
 }
 
 export function advanceSemester(data: GameData): GameData {
+  if (data.screen !== "recap" || !data.recap || data.actionsLeft !== 0) return data;
   if (data.phase >= LAST_PLAY_PHASE) {
     return {
       ...data,
@@ -1238,6 +1244,7 @@ export function evidenceUnlocked(data: GameData, id: EvidenceId): boolean {
 }
 
 export function toggleEvidence(data: GameData, id: EvidenceId): GameData {
+  if (data.screen !== "dossier") return data;
   if (!evidenceUnlocked(data, id)) return data;
   const has = data.dossier.includes(id);
   if (has) return { ...data, dossier: data.dossier.filter((x) => x !== id) };
@@ -1246,6 +1253,7 @@ export function toggleEvidence(data: GameData, id: EvidenceId): GameData {
 }
 
 export function replaceEvidence(data: GameData, outId: EvidenceId, inId: EvidenceId): GameData {
+  if (data.screen !== "dossier") return data;
   if (!evidenceUnlocked(data, inId)) return data;
   if (!data.dossier.includes(outId) || data.dossier.includes(inId)) return data;
   return { ...data, dossier: data.dossier.map((x) => (x === outId ? inId : x)) };
@@ -1329,8 +1337,8 @@ export function evaluateAdmission(data: GameData): SchoolResult[] {
       (interview && interview.schoolId === school.id ? interview.totalDelta : 0);
     const score = clamp(Math.round(raw * 108 + 6 + bonus), 8, 97);
     const bits: string[] = [];
-    if (s.gpa >= school.gpaFloor + 0.08) bits.push("成績單通過內部慣用門檻");
-    else if (s.gpa < school.gpaFloor) bits.push("GPA 低於這個所常見的舒適線");
+    if (s.gpa >= school.gpaFloor + 0.08) bits.push("成績單達到遊戲設定門檻");
+    else if (s.gpa < school.gpaFloor) bits.push("GPA 低於遊戲設定門檻（未經院校校準）");
     if (w.papers >= 0.12 && s.papers === 0) bits.push("缺少可放書審的論文");
     if (w.papers >= 0.12 && s.papers >= 1) bits.push("論文紀錄有加分");
     if (w.intern >= 0.08 && f.internDone) bits.push("實務經歷對這個所有感");
@@ -1387,10 +1395,13 @@ export function resolveInterviewOption(data: GameData, opt: InterviewOption) {
 }
 
 function shuffleOptions(q: InterviewQuestion, rng: Rng): InterviewQuestion {
-  return {
-    prompt: q.prompt,
-    options: [...q.options].sort(() => rng.next() - 0.5),
-  };
+  const options = [...q.options];
+  // Fisher-Yates consumes one draw per position, independent of JS sort engine.
+  for (let i = options.length - 1; i > 0; i--) {
+    const j = rng.int(0, i);
+    [options[i], options[j]] = [options[j]!, options[i]!];
+  }
+  return { prompt: q.prompt, options };
 }
 
 function buildInterview(data: GameData, school: SchoolResult, rng: Rng): InterviewState {
@@ -1424,7 +1435,7 @@ function finishRun(data: GameData): GameData {
 }
 
 export function submitDossier(data: GameData): GameData {
-  if (data.dossier.length === 0) return data;
+  if (data.screen !== "dossier" || data.dossier.length === 0) return data;
   const withPhase: GameData = { ...data, phase: RESULT_PHASE, recap: null };
   const admission = evaluateAdmission(withPhase);
   const best = admission[0];
@@ -1440,6 +1451,7 @@ export function submitDossier(data: GameData): GameData {
 }
 
 export function answerInterview(data: GameData, optionIndex: number): GameData {
+  if (data.screen !== "interview" || !Number.isInteger(optionIndex)) return data;
   const iv = data.interview;
   if (!iv) return data;
   const q = iv.questions[iv.index];
@@ -1581,7 +1593,7 @@ function makeRunRecord(data: GameData): RunRecord {
   const best = data.admission?.[0];
   return {
     id: `${data.seed}-r`,
-    at: Date.now(),
+    at: data.startedAt,
     name: data.profile?.name ?? "",
     major: data.profile?.major ?? "cs",
     archetype: data.profile?.archetype ?? "balanced",
@@ -1648,8 +1660,9 @@ export function hasContinue(data: GameData) {
 
 export function resumeScreen(data: GameData): GameData["screen"] {
   if (data.screen === "create") return "create";
-  if (data.admission && data.screen === "result") return "result";
-  if (data.interview && data.screen === "interview") return "interview";
+  if (data.interview && data.interview.index < data.interview.questions.length) return "interview";
+  if (data.admission) return "result";
+  if (data.phase === LAST_PLAY_PHASE && data.actionsLeft === 0 && !data.recap && !data.pendingEvent) return "dossier";
   if (data.screen === "dossier") return "dossier";
   if (data.recap) return "recap";
   if (data.profile) return "play";
@@ -1679,13 +1692,14 @@ export function gpaBand(n: number) {
   return "需補救";
 }
 
-export function normalizeSave(data: GameData | undefined): GameData {
-  if (!data || data.version > SAVE_VERSION) return titleData();
+export function normalizeSave(value: unknown): GameData {
+  const data = parseSave(value);
+  if (!data) return titleData();
   const profile = data.profile;
   let roommate = data.roommate ?? null;
   if (!roommate && profile && data.gameActive) {
-    roommate = makeRoommate(profile, data.seed || 1);
-    const rng = createRng((data.seed || 1) ^ 0x9e3779b9);
+    roommate = makeRoommate(profile, data.seed);
+    const rng = createRng(data.seed ^ 0x9e3779b9);
     for (let p = 0; p < data.phase; p++) roommate = simRoommateTerm(roommate, p, rng);
   }
   const history = data.history ?? [];

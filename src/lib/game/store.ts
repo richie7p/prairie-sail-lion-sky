@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
+import { createSafeStorage } from "../safe-storage";
 import {
   advanceSemester,
   answerInterview,
@@ -105,6 +106,7 @@ export const useGame = create<GameStore>()(
     {
       name: "tuijian-rpg-v1",
       version: SAVE_VERSION,
+      storage: createJSONStorage(() => createSafeStorage(() => window.localStorage)),
       partialize: (s) => ({ data: s.data }),
       skipHydration: true,
       migrate: (persisted) => {

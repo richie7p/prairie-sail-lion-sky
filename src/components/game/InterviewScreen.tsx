@@ -54,6 +54,7 @@ export function InterviewScreen() {
         {q.options.map((opt, i) => (
           <Button
             key={opt.label}
+            data-testid="interview-option"
             variant="secondary"
             className="h-auto min-h-11 whitespace-normal py-3 text-left"
             onClick={() => onPick(i)}
