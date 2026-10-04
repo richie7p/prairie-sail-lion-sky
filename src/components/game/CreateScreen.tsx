@@ -41,7 +41,7 @@ export function CreateScreen() {
         <Input
           value={name}
           maxLength={12}
-          placeholder="例如：林予安"
+          placeholder="虛構暱稱"
           onChange={(e) => setName(e.target.value)}
           autoComplete="off"
         />

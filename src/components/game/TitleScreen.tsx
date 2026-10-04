@@ -9,7 +9,7 @@ import {
   PROJECT_TRACK,
   VERDICT_LABEL,
 } from "@/lib/game/content";
-import { hasContinue } from "@/lib/game/engine";
+import { hasContinue, titleData } from "@/lib/game/engine";
 import { useGame } from "@/lib/game/store";
 import type { Verdict } from "@/lib/game/types";
 
@@ -24,6 +24,7 @@ export function TitleScreen() {
   const data = useGame((s) => s.data);
   const goCreate = useGame((s) => s.goCreate);
   const resume = useGame((s) => s.resume);
+  const erase = () => { useGame.setState({ data: titleData() }); void useGame.persist.clearStorage(); };
   const canContinue = hasContinue(data);
   const history = data.history ?? [];
 
@@ -54,6 +55,8 @@ export function TitleScreen() {
             </Button>
           ) : null}
         </div>
+        <p className="mt-4 text-xs text-muted">進度與歷次遊玩存在此瀏覽器，未加密。共用裝置使用完畢請清除。</p>
+        <Button variant="ghost" onClick={erase}>清除所有遊戲存檔</Button>
       </main>
 
       <ul className="grid gap-3 sm:grid-cols-3">
